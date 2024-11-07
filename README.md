@@ -6,28 +6,22 @@ This is my own take on the [deprecated Pose Library](https://blenderartists.org/
 
 What features does it include?
 ==============================
-Fast use
---------
+###Fast use
 Just one click to save, one click to load.
 
-Multiple armatures at the same time
------------------------------------
+###Multiple armatures at the same time
 I don't like having every component of a character in the same armature, so naturally I have many secondary rigs for different parts, such as accessories, eyes, mouth and other controllers. This addon can save poses for many armatures under one single pose, which you can load for all corresponding armatures at the same time.
 
-As many libraries as you need
------------------------------
+###As many libraries as you need
 You can create more than one library of poses and name them whatever you want.
 
-Everything is saved to the Blender file
----------------------------------------
+###Everything is saved to the Blender file
 All your poses and libraries are embeded to the Blender file. This means that you don't have to worry about save files.
 
-Default armature names
-----------------------
+###Default armature names
 You can further optimize this addon for your workflow by providing a list of the names of the armatures you want to automatically save the poses of. With this, you'll save poses without having to select the armatures, which makes this really convenient and fast to use.
 
-Quick pose load
----------------
+###Quick pose load
 Load poses without having to select the armatures. Pressing the Load button will work regardless of your current selection.
 
 Use Guide
@@ -36,8 +30,7 @@ Install the addon as usual. After installing, you'll see a text field in the add
 
 ![](https://i.imgur.com/HPIvAlI.png)
 
-Save a pose
------------
+###Save a pose
 You'll find this addon in the **Amarillo** in the N-Panel. First, create a Library by clicking on the "+" icon. You can even change the name later.
 
 ![](https://i.imgur.com/kd9T3y6.png) ![](https://i.imgur.com/9c3qtmx.png)
@@ -48,12 +41,10 @@ To save a pose, enter pose mode on the desired armatures. You don't need to sele
 
 That's it. Your pose is saved to the .blend file.
 
-Load a pose
------------
+###Load a pose
 To load a pose, you don't need to enter pose mode, or even have the armature(s) selected. You have to select the pose you want to load from the list of saved poses, then press Load Selected Pose. Alternatively, you can also just click on the down pointing arrow to the right of every pose in the list.
 
-Update a pose
--------------
+###Update a pose
 If you want to update an existing pose, select it and then press "Save Pose". This will open the saving prompt with the name of the pose you have selected (which is the one you want to update). Just hit OK and that pose will be updated. Keep in mind that poses will be overwritten if you try creating a new pose with the name of a pose that already exists. Be mindful of the names you use.
 
 How This Addon Was Made
