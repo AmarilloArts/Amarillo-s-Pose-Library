@@ -4,7 +4,7 @@
 
 What is this?
 =============
-This is my own take on the [deprecated Pose Library](https://blenderartists.org/t/pose-library-legacy/1457190) from Blender. I liked how simple and straightforward it was. It let me save and load poses much faster than the current Asset Library implementation, which I am not a fan of.
+This is my own take on the [deprecated Pose Library](https://blenderartists.org/t/pose-library-legacy/1457190) from Blender. I liked how simple and straightforward it was. This addon lets you save and load poses much faster than the current Asset Library implementation, which I am not a fan of.
 
 What features does it include?
 ==============================
