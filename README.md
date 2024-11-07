@@ -18,7 +18,7 @@ I don't like having every component of a character in the same armature, so natu
 You can create more than one library of poses and name them whatever you want.
 
 ### Everything is saved to the Blender file
-All your poses and libraries are embeded to the Blender file. This means that you don't have to worry about save files.
+All your poses and libraries are embeded to the Blender file. This means that you don't have to worry about extra files being generated somewhere on your pc.
 
 ### Default armature names
 You can further optimize this addon for your workflow by providing a list of the names of the armatures you want to automatically save the poses of. With this, you'll save poses without having to select the armatures, which makes this really convenient and fast to use.
