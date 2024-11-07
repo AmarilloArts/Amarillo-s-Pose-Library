@@ -1,17 +1,18 @@
 import bpy
 import json
 import mathutils
+from bpy.app.handlers import persistent
 
 bl_info = {
     "name": "Amarillo's Pose Library",
     "blender": (4, 2, 0),
     "category": "Object",
-    "version": (1, 0, 9),
+    "version": (1, 0, 16),
     "author": "Your Name",
     "description": "Save and manage multiple pose libraries per Blender file.",
 }
 
-addon_name = 'AmarilloExpressions'  # Keep the original addon name for preferences
+addon_name = 'AmarillosPoseLibrary'  # Keep the original addon name for preferences
 
 class AmarilloExpressionsPreferences(bpy.types.AddonPreferences):
     bl_idname = addon_name  # Keep the original bl_idname
@@ -66,14 +67,9 @@ class PoseLibrary:
             armature_data = {}
             for bone in obj.pose.bones:
                 bone_data = {
-                    'location': [bone.location.x, bone.location.y, bone.location.z],
-                    'rotation_quaternion': [
-                        bone.rotation_quaternion.w,
-                        bone.rotation_quaternion.x,
-                        bone.rotation_quaternion.y,
-                        bone.rotation_quaternion.z
-                    ],
-                    'scale': [bone.scale.x, bone.scale.y, bone.scale.z]
+                    'location': list(bone.location),
+                    'rotation_quaternion': list(bone.rotation_quaternion),
+                    'scale': list(bone.scale)
                 }
                 armature_data[bone.name] = bone_data
             pose_data[obj.name] = armature_data
@@ -94,14 +90,9 @@ class PoseLibrary:
                     armature_data = {}
                     for bone in obj.pose.bones:
                         bone_data = {
-                            'location': [bone.location.x, bone.location.y, bone.location.z],
-                            'rotation_quaternion': [
-                                bone.rotation_quaternion.w,
-                                bone.rotation_quaternion.x,
-                                bone.rotation_quaternion.y,
-                                bone.rotation_quaternion.z
-                            ],
-                            'scale': [bone.scale.x, bone.scale.y, bone.scale.z]
+                            'location': list(bone.location),
+                            'rotation_quaternion': list(bone.rotation_quaternion),
+                            'scale': list(bone.scale)
                         }
                         armature_data[bone.name] = bone_data
                     pose_data[obj.name] = armature_data
@@ -217,9 +208,6 @@ class PoseLibraryPanel(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
 
-        # Perform migration if needed
-        migrate_old_poses(context)
-
         col = layout.column()
         row = col.row()
         row.template_list("AMARILLO_UL_pose_libraries", "", scene, "pose_libraries", scene, "active_pose_library_index")
@@ -284,10 +272,29 @@ class RemovePoseLibraryOperator(bpy.types.Operator):
         if index >= 0 and index < len(scene.pose_libraries):
             scene.pose_libraries.remove(index)
             scene.active_pose_library_index = min(index, len(scene.pose_libraries) - 1)
+            self.report({'INFO'}, "Pose library deleted.")
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "No pose library selected.")
             return {'CANCELLED'}
+
+    def invoke(self, context, event):
+        scene = context.scene
+        index = scene.active_pose_library_index
+        if index >= 0 and index < len(scene.pose_libraries):
+            # Display the custom confirmation dialog
+            return context.window_manager.invoke_props_dialog(self)
+        else:
+            self.report({'WARNING'}, "No pose library selected.")
+            return {'CANCELLED'}
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        index = scene.active_pose_library_index
+        library_name = scene.pose_libraries[index].name
+        layout.label(text=f"Remove Pose Library '{library_name}'?")
+        layout.label(text="This will make you lose all the poses in it.")
 
 class RenamePoseLibraryOperator(bpy.types.Operator):
     bl_idname = "amarillo_pose.rename_library"
@@ -448,8 +455,17 @@ classes = (
     MovePoseOperator,
 )
 
-def migrate_old_poses(context):
-    scene = context.scene
+@persistent
+def migrate_old_poses(dummy):
+    scene = bpy.context.scene
+    if not hasattr(scene, 'pose_libraries'):
+        return
+
+    # Check if migration has already been performed
+    if getattr(scene, 'pose_library_migrated', False):
+        return
+
+    # Check if old data exists
     if hasattr(scene, 'expression_library') and scene.expression_library:
         if not scene.pose_libraries:
             default_lib = scene.pose_libraries.add()
@@ -459,21 +475,45 @@ def migrate_old_poses(context):
                 new_item.name = item.name
                 new_item.data = item.data
             scene.active_pose_library_index = 0
-            del scene.expression_library
-            del scene.expression_library_index
+
+        # Clean up old properties
+        del scene.expression_library[:]
+        scene.expression_library_index = 0
+
+        # Set migration flag
+        scene.pose_library_migrated = True
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    # Define old properties for migration
+    bpy.types.Scene.expression_library = bpy.props.CollectionProperty(type=PoseItem)
+    bpy.types.Scene.expression_library_index = bpy.props.IntProperty(name="Index for expression_library", default=0)
+
     bpy.types.Scene.pose_libraries = bpy.props.CollectionProperty(type=PoseLibraryItem)
     bpy.types.Scene.active_pose_library_index = bpy.props.IntProperty(name="Active Pose Library Index", default=0)
+    bpy.types.Scene.pose_library_migrated = bpy.props.BoolProperty(default=False)
+
+    # Register the handler
+    bpy.app.handlers.load_post.append(migrate_old_poses)
 
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     del bpy.types.Scene.pose_libraries
     del bpy.types.Scene.active_pose_library_index
+    del bpy.types.Scene.pose_library_migrated
+
+    # Remove old properties if they exist
+    if hasattr(bpy.types.Scene, 'expression_library'):
+        del bpy.types.Scene.expression_library
+    if hasattr(bpy.types.Scene, 'expression_library_index'):
+        del bpy.types.Scene.expression_library_index
+
+    # Remove the handler
+    if migrate_old_poses in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(migrate_old_poses)
 
 if __name__ == "__main__":
     register()
