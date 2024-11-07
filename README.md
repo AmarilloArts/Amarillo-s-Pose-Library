@@ -31,7 +31,7 @@ Install the addon as usual. After installing, you'll see a text field in the add
 ![](https://i.imgur.com/HPIvAlI.png)
 
 ### Save a pose
-You'll find this addon in the **Amarillo** in the N-Panel. First, create a Library by clicking on the "+" icon. You can even change the name later.
+You'll find this addon in the **Amarillo** drawer in the N-Panel. First, create a Library by clicking on the "+" icon. You can even change the name later.
 
 ![](https://i.imgur.com/kd9T3y6.png) ![](https://i.imgur.com/9c3qtmx.png)
 
