@@ -7,7 +7,7 @@ bl_info = {
     "name": "Amarillo's Pose Library",
     "blender": (4, 2, 0),
     "category": "Object",
-    "version": (1, 0, 16),
+    "version": (1, 0, 17),
     "author": "Your Name",
     "description": "Save and manage multiple pose libraries per Blender file.",
 }
@@ -22,11 +22,18 @@ class AmarilloExpressionsPreferences(bpy.types.AddonPreferences):
         description="Comma-separated list of default armature names to include when saving poses",
         default=""
     )
+    
+    reset_unsaved_bones: bpy.props.BoolProperty(
+        name="Reset Unsaved Bones to Initial Transform",
+        description="Reset all bones not present in the saved pose to their initial transforms (position zero, rotation zero, scale one)",
+        default=True
+    )
 
     def draw(self, context):
         layout = self.layout
         layout.label(text="Default Armature Names:")
         layout.prop(self, "armature_names", text="")
+        layout.prop(self, "reset_unsaved_bones")
 
 class PoseItem(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(name="Pose Name")
@@ -62,7 +69,6 @@ class PoseLibrary:
         # Check if there is an active armature in pose mode
         active_obj = context.active_object
         if active_obj and active_obj.type == 'ARMATURE' and active_obj.mode == 'POSE':
-            # Use only the active armature
             obj = active_obj
             armature_data = {}
             for bone in obj.pose.bones:
@@ -74,8 +80,6 @@ class PoseLibrary:
                 armature_data[bone.name] = bone_data
             pose_data[obj.name] = armature_data
         else:
-            # Proceed with default armature names from preferences
-            # Get default armature names from addon preferences
             prefs = bpy.context.preferences.addons[addon_name].preferences
             armature_names = [arm_name.strip() for arm_name in prefs.armature_names.split(",") if arm_name.strip() != ""]
 
@@ -83,7 +87,6 @@ class PoseLibrary:
                 operator.report({'WARNING'}, "No default armature names specified in addon preferences.")
                 return {'CANCELLED'}
 
-            # Iterate over default armature names
             for arm_name in armature_names:
                 obj = bpy.data.objects.get(arm_name)
                 if obj and obj.type == 'ARMATURE':
@@ -97,17 +100,13 @@ class PoseLibrary:
                         armature_data[bone.name] = bone_data
                     pose_data[obj.name] = armature_data
                 else:
-                    # Armature not found or not of type 'ARMATURE', skip it
                     continue
 
         if not pose_data:
             operator.report({'WARNING'}, "No valid armatures found to save.")
             return {'CANCELLED'}
 
-        # Serialize the pose data to a JSON string
         pose_json = json.dumps(pose_data)
-
-        # Check if pose with the same name already exists
         existing = None
         for item in library.poses:
             if item.name == name:
@@ -124,7 +123,6 @@ class PoseLibrary:
             operator.report({'INFO'}, f"Saved new pose: {name}")
 
     def load_pose(self, operator, name):
-        # Find the pose with the given name in the active library
         library = self.active_library
         if not library:
             operator.report({'WARNING'}, "No active pose library selected.")
@@ -137,25 +135,31 @@ class PoseLibrary:
                 break
 
         if pose_item:
-            # Deserialize the pose data
             pose_data = json.loads(pose_item.data)
+
+            prefs = bpy.context.preferences.addons[addon_name].preferences
+            reset_unsaved_bones = prefs.reset_unsaved_bones
 
             for armature_name, armature_data in pose_data.items():
                 obj = bpy.data.objects.get(armature_name)
                 if obj and obj.type == 'ARMATURE':
-                    for bone_name, bone_data in armature_data.items():
-                        if bone_name in obj.pose.bones:
-                            bone = obj.pose.bones[bone_name]
+                    for bone in obj.pose.bones:
+                        if bone.name in armature_data:
+                            bone_data = armature_data[bone.name]
                             bone.location = mathutils.Vector(bone_data['location'])
                             bone.rotation_quaternion = mathutils.Quaternion(bone_data['rotation_quaternion'])
                             bone.scale = mathutils.Vector(bone_data['scale'])
+                        elif reset_unsaved_bones:
+                            # Reset unsaved bones to initial transform
+                            bone.location = mathutils.Vector((0, 0, 0))
+                            bone.rotation_quaternion = mathutils.Quaternion((1, 0, 0, 0))
+                            bone.scale = mathutils.Vector((1, 1, 1))
             bpy.context.view_layer.update()
             operator.report({'INFO'}, f"Loaded pose: {name}")
         else:
             operator.report({'WARNING'}, f"Pose '{name}' not found in the active library.")
 
     def delete_pose(self, operator, name):
-        # Find and remove the pose with the given name in the active library
         library = self.active_library
         if not library:
             operator.report({'WARNING'}, "No active pose library selected.")
@@ -169,16 +173,13 @@ class PoseLibrary:
         operator.report({'WARNING'}, f"Pose '{name}' not found in the active library.")
 
 class PoseLibraryUIList(bpy.types.UIList):
-    """UIList to display poses"""
     bl_idname = "AMARILLO_UL_pose_library"
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         pose = item
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
-            # Label for selection
             row.label(text=pose.name)
-            # Load button
             load_op = row.operator("amarillo_pose.load_direct", text="", icon='IMPORT', emboss=False)
             load_op.pose_name = pose.name
         elif self.layout_type in {'GRID'}:
@@ -186,7 +187,6 @@ class PoseLibraryUIList(bpy.types.UIList):
             layout.label(text="")
 
 class PoseLibrariesUIList(bpy.types.UIList):
-    """UIList to display pose libraries"""
     bl_idname = "AMARILLO_UL_pose_libraries"
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -198,11 +198,11 @@ class PoseLibrariesUIList(bpy.types.UIList):
             layout.label(text="", icon='FILE_FOLDER')
 
 class PoseLibraryPanel(bpy.types.Panel):
-    bl_label = "Amarillo's Pose Library"  # Panel label within the tab
+    bl_label = "Amarillo's Pose Library"
     bl_idname = "AMARILLO_PT_pose_library"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'Amarillo'  # Your custom tab name
+    bl_category = 'Amarillo'
 
     def draw(self, context):
         layout = self.layout
@@ -218,6 +218,10 @@ class PoseLibraryPanel(bpy.types.Panel):
 
         lib_ops.separator()
         lib_ops.operator("amarillo_pose.rename_library", icon='OUTLINER_DATA_FONT', text="")
+
+        col.separator()
+        col.operator("amarillo_pose.export_library", text="Export Library")
+        col.operator("amarillo_pose.import_library", text="Import Library")
 
         library = None
         if scene.active_pose_library_index >= 0 and scene.active_pose_library_index < len(scene.pose_libraries):
@@ -282,7 +286,6 @@ class RemovePoseLibraryOperator(bpy.types.Operator):
         scene = context.scene
         index = scene.active_pose_library_index
         if index >= 0 and index < len(scene.pose_libraries):
-            # Display the custom confirmation dialog
             return context.window_manager.invoke_props_dialog(self)
         else:
             self.report({'WARNING'}, "No pose library selected.")
@@ -390,7 +393,6 @@ class DeletePoseOperator(bpy.types.Operator):
             index = active_lib.poses_index
             if index >= 0 and index < len(active_lib.poses):
                 self.pose_name = active_lib.poses[index].name
-                # Show confirmation dialog
                 return context.window_manager.invoke_confirm(self, event)
             else:
                 self.report({'WARNING'}, "No pose selected")
@@ -438,6 +440,62 @@ class MovePoseOperator(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class ExportPoseLibraryOperator(bpy.types.Operator):
+    bl_idname = "amarillo_pose.export_library"
+    bl_label = "Export Pose Library"
+    
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+        scene = context.scene
+        library = PoseLibrary(context).active_library
+        if not library:
+            self.report({'WARNING'}, "No active pose library selected.")
+            return {'CANCELLED'}
+        
+        export_data = {
+            "library_name": library.name,
+            "poses": [{"name": pose.name, "data": pose.data} for pose in library.poses]
+        }
+        
+        with open(self.filepath, 'w') as file:
+            json.dump(export_data, file, indent=4)
+        
+        self.report({'INFO'}, f"Pose library '{library.name}' exported successfully.")
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+class ImportPoseLibraryOperator(bpy.types.Operator):
+    bl_idname = "amarillo_pose.import_library"
+    bl_label = "Import Pose Library"
+    
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+        scene = context.scene
+        
+        with open(self.filepath, 'r') as file:
+            import_data = json.load(file)
+        
+        new_library = scene.pose_libraries.add()
+        new_library.name = import_data.get("library_name", "Imported Library")
+        
+        for pose in import_data.get("poses", []):
+            pose_item = new_library.poses.add()
+            pose_item.name = pose.get("name", "Unnamed Pose")
+            pose_item.data = pose.get("data", "{}")
+        
+        scene.active_pose_library_index = len(scene.pose_libraries) - 1
+        self.report({'INFO'}, f"Pose library '{new_library.name}' imported successfully.")
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
 classes = (
     AmarilloExpressionsPreferences,
     PoseItem,
@@ -453,6 +511,8 @@ classes = (
     DeletePoseOperator,
     LoadPoseDirectOperator,
     MovePoseOperator,
+    ExportPoseLibraryOperator,
+    ImportPoseLibraryOperator,
 )
 
 @persistent
@@ -461,11 +521,9 @@ def migrate_old_poses(dummy):
     if not hasattr(scene, 'pose_libraries'):
         return
 
-    # Check if migration has already been performed
     if getattr(scene, 'pose_library_migrated', False):
         return
 
-    # Check if old data exists
     if hasattr(scene, 'expression_library') and scene.expression_library:
         if not scene.pose_libraries:
             default_lib = scene.pose_libraries.add()
@@ -476,26 +534,20 @@ def migrate_old_poses(dummy):
                 new_item.data = item.data
             scene.active_pose_library_index = 0
 
-        # Clean up old properties
         del scene.expression_library[:]
         scene.expression_library_index = 0
-
-        # Set migration flag
         scene.pose_library_migrated = True
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    # Define old properties for migration
     bpy.types.Scene.expression_library = bpy.props.CollectionProperty(type=PoseItem)
     bpy.types.Scene.expression_library_index = bpy.props.IntProperty(name="Index for expression_library", default=0)
-
     bpy.types.Scene.pose_libraries = bpy.props.CollectionProperty(type=PoseLibraryItem)
     bpy.types.Scene.active_pose_library_index = bpy.props.IntProperty(name="Active Pose Library Index", default=0)
     bpy.types.Scene.pose_library_migrated = bpy.props.BoolProperty(default=False)
 
-    # Register the handler
     bpy.app.handlers.load_post.append(migrate_old_poses)
 
 def unregister():
@@ -505,13 +557,11 @@ def unregister():
     del bpy.types.Scene.active_pose_library_index
     del bpy.types.Scene.pose_library_migrated
 
-    # Remove old properties if they exist
     if hasattr(bpy.types.Scene, 'expression_library'):
         del bpy.types.Scene.expression_library
     if hasattr(bpy.types.Scene, 'expression_library_index'):
         del bpy.types.Scene.expression_library_index
 
-    # Remove the handler
     if migrate_old_poses in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(migrate_old_poses)
 
