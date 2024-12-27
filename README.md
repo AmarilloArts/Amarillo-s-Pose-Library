@@ -49,6 +49,10 @@ To load a pose, you don't need to enter pose mode, or even have the armature(s) 
 ### Update a pose
 If you want to update an existing pose, select it and then press "Save Pose". This will open the saving prompt with the name of the pose you have selected (which is the one you want to update). Just hit OK and that pose will be updated. Keep in mind that poses will be overwritten if you try creating a new pose with the name of a pose that already exists. Be mindful of the names you use.
 
+### Export you pose library
+You can export all your libraries and poses to a file, which then lets you import them to another Blender file.
+![](https://i.imgur.com/vZRxHpE.png)
+
 How this addon was made
 =======================
 I am actually not very good with python. I made this addon by sitting for a couple hours with ChatGPT and whipping it with my requests and corrections. Make of that what you will 🤖.
